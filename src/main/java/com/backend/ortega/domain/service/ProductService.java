@@ -19,4 +19,16 @@ public class ProductService {
         return this.productRepo.findAllProducts();
     }
 
+    public ProductDTO getById(Long id){
+        return this.productRepo.findById(id);
+    }
+
+    public ProductDTO save(ProductDTO product){
+        return this.productRepo.save(product);
+    }
+
+    public ProductDTO update(Long id, ProductDTO update){
+        return this.productRepo.update(id, update);
+    }
+
 }
