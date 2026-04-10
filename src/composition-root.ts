@@ -16,6 +16,7 @@ import { PgEmailTokenRepository } from "./infrastructure/db/repositories/pg-emai
 import { PgRoomRepository } from "./infrastructure/db/repositories/pg-room-repository.ts";
 import { PgMessageRepository } from "./infrastructure/db/repositories/pg-message-repository.ts";
 import { RedisMessageBus } from "./infrastructure/redis/redis-message-bus.ts";
+import { RedisPresenceStore } from "./infrastructure/redis/redis-presence-store.ts";
 
 import { RegisterUser } from "./application/use-cases/auth/register-user.ts";
 import { LoginUser } from "./application/use-cases/auth/login-user.ts";
@@ -44,10 +45,18 @@ import { DeleteMessage } from "./application/use-cases/messages/delete-message.t
 import { ListMessages } from "./application/use-cases/messages/list-messages.ts";
 import { MarkAsRead } from "./application/use-cases/messages/mark-as-read.ts";
 
+import { PresignAttachment } from "./application/use-cases/attachments/presign-attachment.ts";
+import { ConfirmAttachment } from "./application/use-cases/attachments/confirm-attachment.ts";
+import { MarkUserOnline } from "./application/use-cases/presence/mark-user-online.ts";
+import { MarkUserOffline } from "./application/use-cases/presence/mark-user-offline.ts";
+import { Heartbeat } from "./application/use-cases/presence/heartbeat.ts";
+
 import { AuthController } from "./infrastructure/http/controllers/auth-controller.ts";
 import { UsersController } from "./infrastructure/http/controllers/users-controller.ts";
 import { RoomsController } from "./infrastructure/http/controllers/rooms-controller.ts";
 import { MessagesController } from "./infrastructure/http/controllers/messages-controller.ts";
+import { AttachmentsController } from "./infrastructure/http/controllers/attachments-controller.ts";
+import { S3ObjectStorage } from "./infrastructure/storage/s3-object-storage.ts";
 import { ConnectionRegistry } from "./infrastructure/ws/connection-registry.ts";
 import { EventRouter } from "./infrastructure/ws/event-router.ts";
 import { WsGateway } from "./infrastructure/ws/gateway.ts";
@@ -60,6 +69,7 @@ export interface AppContext {
   users: UsersController;
   rooms: RoomsController;
   messages: MessagesController;
+  attachments: AttachmentsController;
   gateway: WsGateway;
   tokenSigner: TokenSigner;
   rateLimiter: RateLimiter;
@@ -83,6 +93,16 @@ export function buildApp(): AppContext {
   const roomRepo = new PgRoomRepository(sql);
   const messageRepo = new PgMessageRepository(sql);
   const bus = new RedisMessageBus(redisPublisher, redisSubscriber);
+  const presenceStore = new RedisPresenceStore(redisPublisher);
+  const objectStorage = new S3ObjectStorage({
+    endpoint: env.S3_ENDPOINT,
+    region: env.S3_REGION,
+    accessKeyId: env.S3_ACCESS_KEY,
+    secretAccessKey: env.S3_SECRET_KEY,
+    bucket: env.S3_BUCKET,
+    publicUrl: env.S3_PUBLIC_URL,
+    forcePathStyle: env.S3_FORCE_PATH_STYLE,
+  });
 
   const sessionDeps = {
     refreshTokenRepo,
@@ -179,7 +199,7 @@ export function buildApp(): AppContext {
     getRoom,
   });
 
-  const sendMessage = new SendMessage({ messageRepo, roomRepo, bus, idGenerator, clock });
+  const sendMessage = new SendMessage({ messageRepo, roomRepo, bus, idGenerator, clock, objectStorage });
   const editMessage = new EditMessage({ messageRepo, bus, clock });
   const deleteMessage = new DeleteMessage({ messageRepo, roomRepo, bus });
   const listMessages = new ListMessages({ messageRepo, roomRepo });
@@ -192,6 +212,14 @@ export function buildApp(): AppContext {
     listMessages,
   });
 
+  const presignAttachment = new PresignAttachment({ objectStorage, idGenerator });
+  const confirmAttachment = new ConfirmAttachment(objectStorage);
+  const attachments = new AttachmentsController({ presignAttachment, confirmAttachment });
+
+  const markUserOnline = new MarkUserOnline({ presenceStore, bus });
+  const markUserOffline = new MarkUserOffline({ presenceStore, bus });
+  const heartbeat = new Heartbeat(presenceStore);
+
   const registry = new ConnectionRegistry(bus);
   const router = new EventRouter({
     registry,
@@ -201,8 +229,14 @@ export function buildApp(): AppContext {
     editMessage,
     deleteMessage,
     markAsRead,
+    heartbeat,
+    presenceTtlSec: env.WS_PRESENCE_TTL,
   });
-  const gateway = new WsGateway(registry, router, tokenSigner, idGenerator);
+  const gateway = new WsGateway(registry, router, tokenSigner, idGenerator, {
+    markUserOnline,
+    markUserOffline,
+    presenceTtlSec: env.WS_PRESENCE_TTL,
+  });
 
-  return { auth, users, rooms, messages: messagesCtrl, gateway, tokenSigner, rateLimiter };
+  return { auth, users, rooms, messages: messagesCtrl, attachments, gateway, tokenSigner, rateLimiter };
 }
