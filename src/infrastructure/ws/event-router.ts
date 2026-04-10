@@ -6,6 +6,7 @@ import type { SendMessage } from "../../application/use-cases/messages/send-mess
 import type { EditMessage } from "../../application/use-cases/messages/edit-message.ts";
 import type { DeleteMessage } from "../../application/use-cases/messages/delete-message.ts";
 import type { MarkAsRead } from "../../application/use-cases/messages/mark-as-read.ts";
+import type { Heartbeat } from "../../application/use-cases/presence/heartbeat.ts";
 import { parseEnvelope, buildError } from "./envelope.ts";
 import { handlePing } from "./handlers/ping.ts";
 import { handleChatSubscribe } from "./handlers/chat-subscribe.ts";
@@ -15,6 +16,7 @@ import { handleChatEdit } from "./handlers/chat-edit.ts";
 import { handleChatDelete } from "./handlers/chat-delete.ts";
 import { handleChatRead } from "./handlers/chat-read.ts";
 import { handleChatTyping } from "./handlers/chat-typing.ts";
+import { handlePresenceHeartbeat } from "./handlers/presence-heartbeat.ts";
 import { DomainError } from "../../domain/errors/domain-errors.ts";
 import { logger } from "../logging/logger.ts";
 
@@ -26,6 +28,8 @@ export interface RouterDeps {
   editMessage: EditMessage;
   deleteMessage: DeleteMessage;
   markAsRead: MarkAsRead;
+  heartbeat: Heartbeat;
+  presenceTtlSec: number;
 }
 
 export class EventRouter {
@@ -35,7 +39,7 @@ export class EventRouter {
     let envelope;
     try {
       envelope = parseEnvelope(raw);
-    } catch (err) {
+    } catch {
       ws.send(buildError(undefined, "INVALID_ENVELOPE", "Invalid message format"));
       return;
     }
@@ -65,6 +69,9 @@ export class EventRouter {
           break;
         case "chat.typing":
           await handleChatTyping(ws, envelope, this.deps.roomRepo, this.deps.bus);
+          break;
+        case "presence.heartbeat":
+          await handlePresenceHeartbeat(ws, envelope, this.deps.heartbeat, this.deps.presenceTtlSec);
           break;
         default:
           ws.send(buildError(envelope.refId, "UNKNOWN_TYPE", `Unknown event type: ${envelope.type}`));
