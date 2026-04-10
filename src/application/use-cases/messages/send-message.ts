@@ -3,8 +3,9 @@ import type { RoomRepository } from "../../../domain/ports/repositories/room-rep
 import type { MessageBus } from "../../../domain/ports/services/message-bus.ts";
 import type { IdGenerator } from "../../../domain/ports/services/id-generator.ts";
 import type { Clock } from "../../../domain/ports/services/clock.ts";
+import type { ObjectStorage } from "../../../domain/ports/services/object-storage.ts";
 import { toMessageDto, type MessageDto } from "../../../domain/entities/message.ts";
-import { ForbiddenError } from "../../../domain/errors/domain-errors.ts";
+import { ConflictError, ForbiddenError } from "../../../domain/errors/domain-errors.ts";
 
 interface Deps {
   messageRepo: MessageRepository;
@@ -12,6 +13,7 @@ interface Deps {
   bus: MessageBus;
   idGenerator: IdGenerator;
   clock: Clock;
+  objectStorage: ObjectStorage;
 }
 
 interface Input {
@@ -29,6 +31,11 @@ export class SendMessage {
   async execute(input: Input): Promise<MessageDto> {
     const member = await this.deps.roomRepo.getMember(input.roomId, input.senderId);
     if (!member) throw new ForbiddenError("Not a member of this room");
+
+    if (input.attachmentKey) {
+      const exists = await this.deps.objectStorage.headObject(input.attachmentKey);
+      if (!exists) throw new ConflictError("Attachment not found; upload it first via presign");
+    }
 
     const id = this.deps.idGenerator.uuidv7();
     const now = this.deps.clock.now();

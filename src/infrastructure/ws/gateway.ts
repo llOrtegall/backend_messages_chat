@@ -3,7 +3,15 @@ import type { WsData, ConnectionRegistry } from "./connection-registry.ts";
 import type { EventRouter } from "./event-router.ts";
 import type { TokenSigner } from "../../domain/ports/services/token-signer.ts";
 import type { IdGenerator } from "../../domain/ports/services/id-generator.ts";
+import type { MarkUserOnline } from "../../application/use-cases/presence/mark-user-online.ts";
+import type { MarkUserOffline } from "../../application/use-cases/presence/mark-user-offline.ts";
 import { logger } from "../logging/logger.ts";
+
+interface PresenceDeps {
+  markUserOnline: MarkUserOnline;
+  markUserOffline: MarkUserOffline;
+  presenceTtlSec: number;
+}
 
 export class WsGateway {
   constructor(
@@ -11,6 +19,7 @@ export class WsGateway {
     private readonly router: EventRouter,
     private readonly tokenSigner: TokenSigner,
     private readonly idGenerator: IdGenerator,
+    private readonly presence: PresenceDeps,
   ) {}
 
   async upgrade(req: Request, server: Bun.Server<WsData>): Promise<Response | undefined> {
@@ -40,13 +49,19 @@ export class WsGateway {
     return {
       open: (ws) => {
         this.registry.register(ws);
+        this.presence.markUserOnline
+          .execute(ws.data.userId, ws.data.connId, this.presence.presenceTtlSec)
+          .catch(err => logger.warn({ err, userId: ws.data.userId }, "Failed to mark user online"));
         logger.debug({ userId: ws.data.userId, connId: ws.data.connId }, "WS connected");
       },
       message: async (ws, raw) => {
         await this.router.dispatch(ws, raw);
       },
-      close: (ws, code, reason) => {
+      close: (ws, code) => {
         this.registry.unregister(ws);
+        this.presence.markUserOffline
+          .execute(ws.data.userId, ws.data.connId)
+          .catch(err => logger.warn({ err, userId: ws.data.userId }, "Failed to mark user offline"));
         logger.debug({ userId: ws.data.userId, connId: ws.data.connId, code }, "WS disconnected");
       },
     };
