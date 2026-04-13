@@ -7,9 +7,10 @@
     "dev": "bun --watch ./src/index.ts",
     "migrate": "bun run scripts/migrate.ts",
     "seed": "bun run scripts/seed-dev.ts",
-    "test": "bun test",
+    "test": "bun test --max-concurrency 1",
     "test:unit": "bun test tests/unit",
-    "test:integration": "bun test tests/integration"
+    "test:integration": "bun test tests/integration --max-concurrency 1",
+    "test:ws": "bun test tests/ws --max-concurrency 1"
   },
   "devDependencies": {
     "@types/bun": "latest"
