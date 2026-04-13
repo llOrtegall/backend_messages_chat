@@ -13,4 +13,5 @@ export interface RoomRepository {
   setLastReadMessage(roomId: string, userId: string, messageId: string): Promise<void>;
   bumpLastMessageAt(roomId: string, at: Date): Promise<void>;
   updateMemberRole(roomId: string, userId: string, role: RoomRole): Promise<void>;
+  deleteRoom(id: string): Promise<void>;
 }
