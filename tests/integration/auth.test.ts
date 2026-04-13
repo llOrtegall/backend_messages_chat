@@ -5,6 +5,7 @@ let server: Awaited<ReturnType<typeof startTestServer>>;
 
 beforeAll(async () => {
   server = await startTestServer();
+  await truncateTables();
 });
 
 afterEach(async () => {
@@ -26,8 +27,8 @@ describe("Auth — register", () => {
   });
 
   test("409 on duplicate email", async () => {
-    await server.post("/api/v1/auth/register", { email: "alice@example.com", password: "pw", displayName: "A" });
-    const res = await server.post("/api/v1/auth/register", { email: "alice@example.com", password: "pw2", displayName: "A2" });
+    await server.post("/api/v1/auth/register", { email: "alice@example.com", password: "password123", displayName: "A" });
+    const res = await server.post("/api/v1/auth/register", { email: "alice@example.com", password: "password456", displayName: "A2" });
     expect(res.status).toBe(409);
   });
 

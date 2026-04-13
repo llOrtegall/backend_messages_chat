@@ -2,6 +2,7 @@ import { buildApp } from "../../src/composition-root.ts";
 import { createServer } from "../../src/create-server.ts";
 import { migrate } from "../../src/infrastructure/db/migrator.ts";
 import { sql } from "../../src/infrastructure/db/client.ts";
+import { redisPublisher } from "../../src/infrastructure/redis/client.ts";
 
 export async function startTestServer() {
   await migrate();
@@ -50,6 +51,11 @@ export async function truncateTables() {
     TRUNCATE users, rooms, messages, room_members, refresh_tokens, email_tokens
     RESTART IDENTITY CASCADE
   `;
+  // Clear Redis rate-limit keys so tests don't bleed limits into each other
+  const keys = await redisPublisher.keys("rl:*") as string[];
+  if (keys.length > 0) {
+    await Promise.all(keys.map(k => redisPublisher.del(k)));
+  }
 }
 
 export async function registerAndLogin(
