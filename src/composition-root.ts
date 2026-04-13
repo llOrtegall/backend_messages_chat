@@ -31,6 +31,7 @@ import { ConfirmPasswordReset } from "./application/use-cases/auth/confirm-passw
 
 import { GetUser } from "./application/use-cases/users/get-user.ts";
 import { UpdateProfile } from "./application/use-cases/users/update-profile.ts";
+import { ListUsers } from "./application/use-cases/users/list-users.ts";
 
 import { RoomAuthorizer } from "./application/services/room-authorizer.ts";
 import { CreateDirectRoom } from "./application/use-cases/rooms/create-direct-room.ts";
@@ -39,6 +40,7 @@ import { AddMember } from "./application/use-cases/rooms/add-member.ts";
 import { RemoveMember } from "./application/use-cases/rooms/remove-member.ts";
 import { ListMyRooms } from "./application/use-cases/rooms/list-my-rooms.ts";
 import { GetRoom } from "./application/use-cases/rooms/get-room.ts";
+import { DeleteRoom } from "./application/use-cases/rooms/delete-room.ts";
 
 import { SendMessage } from "./application/use-cases/messages/send-message.ts";
 import { EditMessage } from "./application/use-cases/messages/edit-message.ts";
@@ -192,7 +194,8 @@ export function buildApp(overrides: BuildAppOverrides = {}): AppContext {
 
   const getUser = new GetUser(userRepo);
   const updateProfile = new UpdateProfile(userRepo);
-  const users = new UsersController({ getUser, updateProfile });
+  const listUsers = new ListUsers({ userRepo, presenceStore });
+  const users = new UsersController({ getUser, updateProfile, listUsers });
 
   const roomAuthorizer = new RoomAuthorizer(roomRepo);
   const createDirectRoom = new CreateDirectRoom({ roomRepo, userRepo, idGenerator, clock });
@@ -201,6 +204,7 @@ export function buildApp(overrides: BuildAppOverrides = {}): AppContext {
   const removeMember = new RemoveMember({ roomRepo, authorizer: roomAuthorizer });
   const listMyRooms = new ListMyRooms(roomRepo);
   const getRoom = new GetRoom({ roomRepo, authorizer: roomAuthorizer });
+  const deleteRoom = new DeleteRoom({ roomRepo, authorizer: roomAuthorizer });
 
   const rooms = new RoomsController({
     createDirectRoom,
@@ -209,6 +213,7 @@ export function buildApp(overrides: BuildAppOverrides = {}): AppContext {
     removeMember,
     listMyRooms,
     getRoom,
+    deleteRoom,
   });
 
   const sendMessage = new SendMessage({ messageRepo, roomRepo, bus, idGenerator, clock, objectStorage });
