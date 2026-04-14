@@ -150,4 +150,8 @@ export class PgRoomRepository implements RoomRepository {
       UPDATE room_members SET role = ${role} WHERE room_id = ${roomId} AND user_id = ${userId}
     `;
   }
+
+  async deleteRoom(id: string): Promise<void> {
+    await this.sql`DELETE FROM rooms WHERE id = ${id}`;
+  }
 }
