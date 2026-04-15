@@ -125,6 +125,9 @@ export class InMemoryUserRepo implements UserRepository {
     Object.assign(user, patch, { updatedAt: new Date() });
     return user;
   }
+  async listAll(excludeId: string) {
+    return [...this.store.values()].filter(u => u.id !== excludeId);
+  }
 }
 
 // --- RefreshTokenRepository ---
@@ -225,6 +228,12 @@ export class InMemoryRoomRepo implements RoomRepository {
   async updateMemberRole(roomId: string, userId: string, role: RoomRole) {
     const m = this.members.get(this.mkey(roomId, userId));
     if (m) m.role = role;
+  }
+  async deleteRoom(id: string) {
+    this.rooms.delete(id);
+    for (const [key, m] of this.members) {
+      if (m.roomId === id) this.members.delete(key);
+    }
   }
 }
 
