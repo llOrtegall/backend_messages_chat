@@ -18,6 +18,7 @@ export class EditMessage {
     if (!msg) throw new NotFoundError("Message not found");
     if (msg.deletedAt) throw new NotFoundError("Message not found");
     if (msg.senderId !== requesterId) throw new ForbiddenError("Cannot edit another user's message");
+    if (msg.body === body) return toMessageDto(msg);
 
     const updated = await this.deps.messageRepo.update(messageId, {
       body,
