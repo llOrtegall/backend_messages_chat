@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 export const SendMessageSchema = z.object({
-  roomId: z.string().uuid(),
   body: z.string().max(4096).default(""),
   attachmentKey: z.string().max(512).optional(),
   clientMessageId: z.string().max(128).optional(),
