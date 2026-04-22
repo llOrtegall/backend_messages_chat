@@ -67,9 +67,11 @@ import { WsController } from "./infrastructure/http/controllers/ws-controller.ts
 
 import type { TokenSigner } from "./domain/ports/services/token-signer.ts";
 import type { RateLimiter } from "./domain/ports/services/rate-limiter.ts";
+import type { ObjectStorage } from "./domain/ports/services/object-storage.ts";
 
 export interface BuildAppOverrides {
   emailSender?: EmailSender;
+  objectStorage?: ObjectStorage;
 }
 
 export interface AppContext {
@@ -103,7 +105,7 @@ export function buildApp(overrides: BuildAppOverrides = {}): AppContext {
   const messageRepo = new PgMessageRepository(sql);
   const bus = new RedisMessageBus(redisPublisher, redisSubscriber);
   const presenceStore = new RedisPresenceStore(redisPublisher);
-  const objectStorage = new S3ObjectStorage({
+  const objectStorage = overrides.objectStorage ?? new S3ObjectStorage({
     endpoint: env.S3_ENDPOINT,
     region: env.S3_REGION,
     accessKeyId: env.S3_ACCESS_KEY,
