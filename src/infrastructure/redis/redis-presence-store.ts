@@ -11,9 +11,10 @@ export class RedisPresenceStore implements PresenceStore {
     await this.redis.expire(key, ttlSec);
   }
 
-  async markOffline(userId: string, connId: string): Promise<void> {
+  async markOffline(userId: string, connId: string): Promise<boolean> {
     const key = `presence:${userId}`;
-    await this.redis.hdel(key, connId);
+    const removed = await this.redis.hdel(key, connId);
+    return (removed as number) > 0;
   }
 
   async heartbeat(userId: string, connId: string, ttlSec: number): Promise<void> {
