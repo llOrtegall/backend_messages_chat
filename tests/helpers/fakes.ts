@@ -1,4 +1,5 @@
 import type { UserRepository } from "../../src/domain/ports/repositories/user-repository.ts";
+import type { PresenceStore } from "../../src/domain/ports/services/presence-store.ts";
 import type { RefreshTokenRepository } from "../../src/domain/ports/repositories/refresh-token-repository.ts";
 import type { EmailTokenRepository } from "../../src/domain/ports/repositories/email-token-repository.ts";
 import type { RoomRepository } from "../../src/domain/ports/repositories/room-repository.ts";
@@ -14,6 +15,33 @@ import type { Room, RoomMember, RoomRole } from "../../src/domain/entities/room.
 import type { Message } from "../../src/domain/entities/message.ts";
 import type { RefreshToken } from "../../src/domain/entities/refresh-token.ts";
 import type { EmailToken } from "../../src/domain/entities/email-token.ts";
+
+// --- PresenceStore ---
+export class FakePresenceStore implements PresenceStore {
+  private readonly store = new Map<string, Map<string, number>>();
+
+  async markOnline(userId: string, connId: string, _ttlSec: number): Promise<void> {
+    if (!this.store.has(userId)) this.store.set(userId, new Map());
+    this.store.get(userId)!.set(connId, Date.now());
+  }
+  async markOffline(userId: string, connId: string): Promise<boolean> {
+    const conns = this.store.get(userId);
+    if (!conns?.has(connId)) return false;
+    conns.delete(connId);
+    if (conns.size === 0) this.store.delete(userId);
+    return true;
+  }
+  async heartbeat(userId: string, connId: string, _ttlSec: number): Promise<void> {
+    if (!this.store.has(userId)) this.store.set(userId, new Map());
+    this.store.get(userId)!.set(connId, Date.now());
+  }
+  async isOnline(userId: string): Promise<boolean> {
+    return (this.store.get(userId)?.size ?? 0) > 0;
+  }
+  async listOnline(userIds: string[]): Promise<string[]> {
+    return userIds.filter(uid => (this.store.get(uid)?.size ?? 0) > 0);
+  }
+}
 
 // --- Clock ---
 export class FakeClock implements Clock {
