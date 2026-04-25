@@ -197,12 +197,12 @@ describe("Auth — password reset", () => {
     const link = server.emailSender.sent.find(e => e.kind === "reset")?.link;
     const token = new URL(link!).searchParams.get("token")!;
 
-    await server.post("/api/v1/auth/password-reset/confirm", { token, newPassword: "pass1" });
+    await server.post("/api/v1/auth/password-reset/confirm", { token, newPassword: "newpassword1" });
 
     // Second use of same token should fail
     const res = await server.post("/api/v1/auth/password-reset/confirm", {
       token,
-      newPassword: "pass2",
+      newPassword: "newpassword2",
     });
     expect(res.status).toBe(401);
   });
