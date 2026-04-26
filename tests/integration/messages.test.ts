@@ -91,6 +91,30 @@ describe("Messages", () => {
     expect(res.status).toBe(403);
   });
 
+  test("clientMessageId idempotency — same id returned, only one message stored", async () => {
+    const a = await registerUser("alice@x.com");
+    const b = await registerUser("bob@x.com");
+
+    const roomRes = await server.post("/api/v1/rooms", { targetUserId: b.user.id }, a.accessToken);
+    const { room } = await roomRes.json() as { room: { id: string } };
+
+    const payload = { body: "Hello!", clientMessageId: "client-abc-123" };
+
+    const r1 = await server.post(`/api/v1/rooms/${room.id}/messages`, payload, a.accessToken);
+    const r2 = await server.post(`/api/v1/rooms/${room.id}/messages`, payload, a.accessToken);
+
+    expect(r1.status).toBe(201);
+    expect(r2.status).toBe(201);
+
+    const { message: m1 } = await r1.json() as { message: { id: string } };
+    const { message: m2 } = await r2.json() as { message: { id: string } };
+    expect(m1.id).toBe(m2.id);
+
+    const listRes = await server.get(`/api/v1/rooms/${room.id}/messages`, a.accessToken);
+    const { messages } = await listRes.json() as { messages: unknown[] };
+    expect(messages).toHaveLength(1);
+  });
+
   test("cursor pagination", async () => {
     const a = await registerUser("alice@x.com");
     const b = await registerUser("bob@x.com");
